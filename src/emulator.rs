@@ -96,75 +96,13 @@ fn print_error(err_msg: &str) {
     println!("[ERROR] {}", err_msg);
 }
 
-fn generate_mood(mut irritation: i32, mut credit: i32, mut mood: Mood, mut small: i32, 
-    mut small_close: i32, mut medium: i32, mut medium_close: i32, mut large: i32, mut large_close: i32,
-    mut polite_change: i32, mut polite_strong_change: i32, mut demand_change: i32, mut demand_strong_change: i32,
-    mut irritation_change: i32, mut irritation_decay: i32) {
+fn generate_rng() -> rngs::StdRng {
     let time = chrono::offset::Utc::now();
     let hours = time.time().hour();
     let days = time.date().ordinal();
     let seed = hours * days;
     let mut rng: rngs::StdRng = rand::SeedableRng::seed_from_u64(seed as u64);
-
-    match (rng.gen::<u64>() % 8) {
-        0 => {
-            mood = Mood::Bored;
-        },
-        1 => {
-            mood = Mood::Happy;
-            credit = 50;
-            small = 75;
-            medium = 100;
-            large = 125;
-            small_close = 50;
-            medium_close = 75;
-            large_close = 100;
-        },
-        2 => {
-            mood = Mood::Sick;
-            credit = -25;
-            polite_strong_change = -7;
-            demand_change = -4;
-        },
-        3 => {
-            mood = Mood::Maniacal;
-            irritation_decay = 0;
-            medium_close = 0;
-        },
-        4 => {
-            mood = Mood::Angry;
-            demand_change = -4;
-            demand_strong_change = -8;
-            polite_strong_change = -4;
-            large = 75;
-            large_close = 50;
-        },
-        5 => {
-            mood = Mood::Annoyed;
-            irritation_change = 8;
-        },
-        6 => {
-            mood = Mood::Lovestruck;
-            polite_change = 5;
-            polite_strong_change = -2;
-            credit = 25;
-            small = 100;
-            medium = 125;
-            large = 150;
-            small_close = 50;
-            medium_close = 75;
-            large_close = 100;
-            irritation_decay = -2;
-        },
-        7 => {
-            mood = Mood::Confused;
-            polite_change = -2;
-            polite_strong_change = -4;
-            demand_change = 2;
-            demand_strong_change = 5;
-        },
-        _ => panic!("Generated a number outside of the range, for moods!")
-    }
+    rng
 }
 
 pub fn emulate() {
@@ -186,10 +124,65 @@ pub fn emulate() {
     let mut irritation_change: i32 = 5;
     let mut irritation_decay: i32 = -1;
 
-    generate_mood(irritation, social_credit, mood, 
-                SMALL_TOLERANCE, SMALL_TOLERANCE_CLOSE, MEDIUM_TOLERANCE, MEDIUM_TOLERANCE_CLOSE, LARGE_TOLERANCE, LARGE_TOLERANCE_CLOSE,
-                polite_social_change, polite_strong_social_change, demanding_social_change, demanding_strong_social_change,
-                irritation_change, irritation_decay);
+    match generate_rng().gen::<u64>() % 8 {
+        0 => {
+            mood = Mood::Bored;
+        },
+        1 => {
+            mood = Mood::Happy;
+            social_credit = 50;
+            SMALL_TOLERANCE = 75;
+            MEDIUM_TOLERANCE = 100;
+            LARGE_TOLERANCE = 125;
+            SMALL_TOLERANCE_CLOSE = 50;
+            MEDIUM_TOLERANCE_CLOSE = 75;
+            LARGE_TOLERANCE_CLOSE = 100;
+        },
+        2 => {
+            mood = Mood::Sick;
+            social_credit = -25;
+            polite_strong_social_change = -7;
+            demanding_social_change = -4;
+        },
+        3 => {
+            mood = Mood::Maniacal;
+            irritation_decay = 0;
+            MEDIUM_TOLERANCE_CLOSE = 0;
+        },
+        4 => {
+            mood = Mood::Angry;
+            demanding_social_change = -4;
+            demanding_strong_social_change = -8;
+            polite_strong_social_change = -4;
+            LARGE_TOLERANCE = 75;
+            LARGE_TOLERANCE_CLOSE = 50;
+        },
+        5 => {
+            mood = Mood::Annoyed;
+            irritation_change = 8;
+        },
+        6 => {
+            mood = Mood::Lovestruck;
+            polite_social_change = 5;
+            polite_strong_social_change = -2;
+            social_credit = 25;
+            SMALL_TOLERANCE = 100;
+            MEDIUM_TOLERANCE = 125;
+            LARGE_TOLERANCE = 150;
+            SMALL_TOLERANCE_CLOSE = 50;
+            MEDIUM_TOLERANCE_CLOSE = 75;
+            LARGE_TOLERANCE_CLOSE = 100;
+            irritation_decay = -2;
+        },
+        7 => {
+            mood = Mood::Confused;
+            polite_social_change = -2;
+            polite_strong_social_change = -4;
+            demanding_social_change = 2;
+            demanding_strong_social_change = 5;
+        },
+        _ => panic!("Generated a number outside of the range, for moods!")
+    }
 
     let mut polite_registries: (i32, i32) = (0, 0);
     let mut demanding_registries: (i32, i32) = (0, 0);
@@ -489,7 +482,7 @@ pub fn emulate() {
                     }
 
                     if selected_registry > other_registry {
-                        let mut value = 1;
+                        let mut value = 2;
                         if specifics[1] {
                             value += 2;
                         }
@@ -522,7 +515,7 @@ pub fn emulate() {
                     }
 
                     if selected_registry == 0 {
-                        let mut value = 1;
+                        let mut value = 2;
                         if specifics[1] {
                             value += 2;
                         }
@@ -548,7 +541,7 @@ pub fn emulate() {
                     }
 
                     if selected_registries.0 == selected_registries.1 {
-                        let mut value = 1;
+                        let mut value = 2;
                         if specifics[0] {
                             value += 4;
                         }
@@ -576,7 +569,7 @@ pub fn emulate() {
                         selected_registries = demanding_registries;
                     }
 
-                    let mut value = 1;
+                    let mut value = 2;
                     if specifics[0] {
                         value += 4;
                     }
