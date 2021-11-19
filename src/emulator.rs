@@ -27,19 +27,19 @@ impl PrefixType {
 
 #[derive(Clone, PartialEq, Debug, Copy)]
 enum Mood {
-    Bored, //no changes to mood scores as they are by default.
-    Happy, //social credit starts high, higher tolerances.
-    Sick, //social credit starts low, tolerance is low, and irritation cannot decrease.
-    Maniacal, //social credit can not increase. Close to tolerance is always positive for "NOW" and "I'M ORDERING YOU,".
-    Angry, //social credit decreases much faster, and the tolerance is lower on the negative end.
-    Annoyed, //irritation increases twice as fast.
-    Lovestruck, //social credit increases much faster, and tolerance is all around high.
-    Confused, //social credit increases instead of decreasing, and vice-versa.
+    Bored, 
+    Happy, 
+    Sick, 
+    Maniacal, 
+    Angry, 
+    Annoyed, 
+    Lovestruck, 
+    Confused, 
 }
 
 #[derive(Clone, PartialEq, Debug, Copy)]
 enum OperationType {
-    INCREMENT,
+    INCREMENT, 
     TO,
     ACCESS,
     LOOP,
@@ -121,16 +121,39 @@ pub fn emulate() {
     let mut polite_strong_social_change: i32 = -5;
     let mut demanding_social_change: i32 = -2;
     let mut demanding_strong_social_change: i32 = -5;
-    let mut irritation_change: i32 = 5;
+    let mut irritation_change: i32 = 4;
     let mut irritation_decay: i32 = -1;
 
-    match generate_rng().gen::<u64>() % 8 {
+    let mut polite_registries: (i32, i32) = (0, 0);
+    let mut demanding_registries: (i32, i32) = (0, 0);
+    let mut stacks = (Vec::<i32>::new(), Vec::<i32>::new());
+    let mut loops: (i32, i32) = (0, 0);
+    let mut loop_counters: (i32, i32) = (0, 0);
+    let mut loop_registries: (i32, i32) = (0, 0);
+    let mut forcedmood: Option<u64> = None;
+
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 3 {
+        match args[2].clone().as_str() {
+            "--Bored" => forcedmood = Some(0),
+            "--Happy" => forcedmood = Some(1),
+            "--Sick" => forcedmood = Some(2),
+            "--Maniacal" => forcedmood = Some(3),
+            "--Angry" => forcedmood = Some(4),
+            "--Annoyed" => forcedmood = Some(5),
+            "--Lovestruck" => forcedmood = Some(6),
+            "--Confused" => forcedmood = Some(7),
+            _ => ()
+        }
+    }
+
+    match if forcedmood.is_some() {forcedmood.unwrap()} else { generate_rng().gen::<u64>() % 8 } {
         0 => {
             mood = Mood::Bored;
         },
         1 => {
             mood = Mood::Happy;
-            social_credit = 50;
+            social_credit = 25;
             SMALL_TOLERANCE = 75;
             MEDIUM_TOLERANCE = 100;
             LARGE_TOLERANCE = 125;
@@ -173,7 +196,7 @@ pub fn emulate() {
             SMALL_TOLERANCE_CLOSE = 50;
             MEDIUM_TOLERANCE_CLOSE = 75;
             LARGE_TOLERANCE_CLOSE = 100;
-            irritation_decay = -2;
+            irritation_change = 1;
         },
         7 => {
             mood = Mood::Confused;
@@ -185,32 +208,10 @@ pub fn emulate() {
         _ => panic!("Generated a number outside of the range, for moods!")
     }
 
-    let mut polite_registries: (i32, i32) = (0, 0);
-    let mut demanding_registries: (i32, i32) = (0, 0);
-    let mut stacks = (Vec::<i32>::new(), Vec::<i32>::new());
-    let mut loops: (i32, i32) = (0, 0);
-    let mut loop_counters: (i32, i32) = (0, 0);
-    let mut loop_registries: (i32, i32) = (0, 0);
-    let mut forcedmood: Option<Mood> = None;
-
-    let args: Vec<String> = std::env::args().collect();
     if args.len() == 2 {
         if args[1].clone() == "get_mood" {
             println!("{:?}", mood);
             panic!("Got mood.");
-        }
-    }
-    if args.len() == 3 {
-        match args[2].clone().as_str() {
-            "--Bored" => forcedmood = Some(Mood::Bored),
-            "--Happy" => forcedmood = Some(Mood::Happy),
-            "--Sick" => forcedmood = Some(Mood::Sick),
-            "--Maniacal" => forcedmood = Some(Mood::Maniacal),
-            "--Angry" => forcedmood = Some(Mood::Angry),
-            "--Annoyed" => forcedmood = Some(Mood::Annoyed),
-            "--Lovestruck" => forcedmood = Some(Mood::Lovestruck),
-            "--Confused" => forcedmood = Some(Mood::Confused),
-            _ => ()
         }
     }
     if args.len() < 2 {
@@ -228,7 +229,7 @@ pub fn emulate() {
             let operation_type = commands[i].1.clone();
             let specifics = commands[i].2;
 
-            if irritation >= 100 {
+            if irritation >= 1000 {
                 eprintln!("This program is DONE with your wishy-washy attitude.");
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 panic!();
@@ -459,7 +460,7 @@ pub fn emulate() {
 
                     if specifics[2] {
                         if specifics[1] {
-                            if loop_counters.1 < loop_registries.1 - 1 {
+                            if loop_counters.1 < loop_registries.1 {
                                 loop_counters.1 += 1;
                                 i = loops.1 as usize;
                             }
@@ -470,14 +471,14 @@ pub fn emulate() {
                         }
                     } else {
                         if specifics[1] {
-                            if loop_counters.0 < loop_registries.0 - 1 {
+                            if loop_counters.0 < loop_registries.0 {
                                 loop_counters.0 += 1;
                                 i = loops.0 as usize;
                             }
                         } else {
-                            loop_counters.0 = 0;
                             loop_registries.0 = selected_registry;
                             loops.0 = i as i32;
+                            loop_counters.0 = 0;
                         }
                     }
                 },
@@ -500,7 +501,7 @@ pub fn emulate() {
                     }
 
                     if selected_registry > other_registry {
-                        let mut value = 2;
+                        let mut value = 1;
                         if specifics[1] {
                             value += 2;
                         }
@@ -533,7 +534,7 @@ pub fn emulate() {
                     }
 
                     if selected_registry == 0 {
-                        let mut value = 2;
+                        let mut value = 0;
                         if specifics[1] {
                             value += 2;
                         }
@@ -559,7 +560,7 @@ pub fn emulate() {
                     }
 
                     if selected_registries.0 == selected_registries.1 {
-                        let mut value = 2;
+                        let mut value = 1;
                         if specifics[0] {
                             value += 4;
                         }
@@ -587,7 +588,7 @@ pub fn emulate() {
                         selected_registries = demanding_registries;
                     }
 
-                    let mut value = 2;
+                    let mut value = 1;
                     if specifics[0] {
                         value += 4;
                     }
