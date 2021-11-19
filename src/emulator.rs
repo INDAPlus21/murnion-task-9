@@ -5,7 +5,7 @@ use rand::rngs;
 use chrono::{DateTime, TimeZone, NaiveDateTime, Utc};
 use chrono::prelude::*;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug, Copy)]
 enum PrefixType {
     POLITE_STRONG,
     POLITE,
@@ -29,15 +29,15 @@ impl PrefixType {
 enum Mood {
     Bored, //no changes to mood scores as they are by default.
     Happy, //social credit starts high, higher tolerances.
-    Sick, //social credit starts low, tolerance is low on the positive end.
-    Maniacal, //social credit cannot increase. Close to tolerance is always positive for DEMAND.
+    Sick, //social credit starts low, tolerance is low, and irritation cannot decrease.
+    Maniacal, //social credit can not increase. Close to tolerance is always positive for "NOW" and "I'M ORDERING YOU,".
     Angry, //social credit decreases much faster, and the tolerance is lower on the negative end.
     Annoyed, //irritation increases twice as fast.
     Lovestruck, //social credit increases much faster, and tolerance is all around high.
     Confused, //social credit increases instead of decreasing, and vice-versa.
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug, Copy)]
 enum OperationType {
     INCREMENT,
     TO,
@@ -70,14 +70,14 @@ fn convert_to_instruction(_byte: u8) -> (PrefixType, OperationType, [bool; 3]) {
     let base: u8 = 2;
     let mut bool_array: [bool; 8] = [false; 8];
     for i in 0..8 {
-        if byte >= base.pow(8 - i) {
-            byte -= base.pow(8 - i);
+        if byte >= base.pow(7 - i) {
+            byte -= base.pow(7 - i);
             bool_array[i as usize] = true;
         }
     }
 
-    let operation_type = OperationType::find([bool_array[0], bool_array[1], bool_array[2]]);
-    let prefix_type = PrefixType::find([bool_array[3], bool_array[4]]);
+    let prefix_type = PrefixType::find([bool_array[0], bool_array[1]]);
+    let operation_type = OperationType::find([bool_array[2], bool_array[3], bool_array[4]]);
     let specifics = [bool_array[5], bool_array[6], bool_array[7]];
 
     (prefix_type, operation_type, specifics)
@@ -143,10 +143,11 @@ pub fn emulate() {
             social_credit = -25;
             polite_strong_social_change = -7;
             demanding_social_change = -4;
+            irritation_decay = 0;
         },
         3 => {
             mood = Mood::Maniacal;
-            irritation_decay = 0;
+            polite_social_change = 0;
             MEDIUM_TOLERANCE_CLOSE = 0;
         },
         4 => {
@@ -190,22 +191,39 @@ pub fn emulate() {
     let mut loops: (i32, i32) = (0, 0);
     let mut loop_counters: (i32, i32) = (0, 0);
     let mut loop_registries: (i32, i32) = (0, 0);
+    let mut forcedmood: Option<Mood> = None;
 
     let args: Vec<String> = std::env::args().collect();
-    if args.len() == 3 {
-        if args[2].clone() == "get_mood" {
+    if args.len() == 2 {
+        if args[1].clone() == "get_mood" {
             println!("{:?}", mood);
+            panic!("Got mood.");
+        }
+    }
+    if args.len() == 3 {
+        match args[2].clone().as_str() {
+            "--Bored" => forcedmood = Some(Mood::Bored),
+            "--Happy" => forcedmood = Some(Mood::Happy),
+            "--Sick" => forcedmood = Some(Mood::Sick),
+            "--Maniacal" => forcedmood = Some(Mood::Maniacal),
+            "--Angry" => forcedmood = Some(Mood::Angry),
+            "--Annoyed" => forcedmood = Some(Mood::Annoyed),
+            "--Lovestruck" => forcedmood = Some(Mood::Lovestruck),
+            "--Confused" => forcedmood = Some(Mood::Confused),
+            _ => ()
         }
     }
     if args.len() < 2 {
         print_error("A path to a SAL file must be provided!");
     } else {
+        println!("{:?}", args[1]);
         let mut commands: Vec<(PrefixType, OperationType, [bool; 3])> = fs::read(args[1].clone()).ok().unwrap()
                                                                                         .into_iter()
                                                                                         .map(|x| convert_to_instruction(x))
                                                                                         .collect();
 
-        for mut i in 0..commands.len() {
+        let mut i = 0;
+        while (i < commands.len()) {
             let prefix_type = commands[i].0.clone();
             let operation_type = commands[i].1.clone();
             let specifics = commands[i].2;
@@ -386,17 +404,17 @@ pub fn emulate() {
                         selected_registry = selected_registries.0;
                     }
 
-                    if specifics[1] {
+                    if !specifics[1] {
                         let mut input = String::new();
                         if specifics[2] {
                             let _input = std::io::stdin().read_line(&mut input);
-                            if input.len() == 1 && (input.chars().nth(0)).unwrap().is_ascii() {
+                            if (input.chars().nth(0)).unwrap().is_ascii() {
                                 selected_registry = ((input.chars().nth(0)).unwrap() as u8) as i32;
                             }
                         } else {
                             let _input = std::io::stdin().read_line(&mut input);
-                            if input.len() == 1 && (input.chars().nth(0)).unwrap().is_numeric() {
-                                let temp = input.parse::<i32>();
+                            if (input.chars().nth(0)).unwrap().is_numeric() {
+                                let temp = input.split_at(input.len() - 1).0.parse::<i32>();
                                 if temp.is_ok() {
                                     selected_registry = temp.unwrap();
                                 }
@@ -441,7 +459,7 @@ pub fn emulate() {
 
                     if specifics[2] {
                         if specifics[1] {
-                            if loop_counters.1 < loop_registries.1 {
+                            if loop_counters.1 < loop_registries.1 - 1 {
                                 loop_counters.1 += 1;
                                 i = loops.1 as usize;
                             }
@@ -452,7 +470,7 @@ pub fn emulate() {
                         }
                     } else {
                         if specifics[1] {
-                            if loop_counters.0 < loop_registries.0 {
+                            if loop_counters.0 < loop_registries.0 - 1 {
                                 loop_counters.0 += 1;
                                 i = loops.0 as usize;
                             }
@@ -590,6 +608,7 @@ pub fn emulate() {
                 }
                 _ => panic!(),
             }
+            i += 1;
         }
     }
 }
