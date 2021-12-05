@@ -1,9 +1,20 @@
 use std::fs;
-use std::collections;
 use rand::Rng;
 use rand::rngs;
 use chrono::{DateTime, TimeZone, NaiveDateTime, Utc};
 use chrono::prelude::*;
+
+#[derive(Clone, PartialEq, Debug, Copy)]
+enum Mood {
+    Bored, 
+    Happy, 
+    Sick, 
+    Maniacal, 
+    Angry, 
+    Annoyed, 
+    Lovestruck, 
+    Confused, 
+}
 
 #[derive(Clone, PartialEq, Debug, Copy)]
 enum PrefixType {
@@ -20,21 +31,8 @@ impl PrefixType {
             [false, true] => PrefixType::DEMANDING,
             [true, false] => PrefixType::POLITE,
             [true, true] => PrefixType::POLITE_STRONG,
-            _ => panic!()
         }
     }
-}
-
-#[derive(Clone, PartialEq, Debug, Copy)]
-enum Mood {
-    Bored, 
-    Happy, 
-    Sick, 
-    Maniacal, 
-    Angry, 
-    Annoyed, 
-    Lovestruck, 
-    Confused, 
 }
 
 #[derive(Clone, PartialEq, Debug, Copy)]
@@ -65,6 +63,7 @@ impl OperationType {
     }
 }
 
+// Generic helper function to convert compiler-fed code byte by byte into actual executable code.
 fn convert_to_instruction(_byte: u8) -> (PrefixType, OperationType, [bool; 3]) {
     let mut byte = _byte;
     let base: u8 = 2;
@@ -83,19 +82,7 @@ fn convert_to_instruction(_byte: u8) -> (PrefixType, OperationType, [bool; 3]) {
     (prefix_type, operation_type, specifics)
 }
 
-fn to_specifics(string: &str) -> [bool; 3] {
-    let temp1 = string.split_at(1).0.parse::<bool>().unwrap();
-    let temp2 = string.split_at(1).1.split_at(1).0.parse::<bool>().unwrap();
-    let temp3 = string.split_at(1).1.split_at(1).1.parse::<bool>().unwrap();
-
-    let specifics = [temp1, temp2, temp3];
-    specifics
-}
-
-fn print_error(err_msg: &str) {
-    println!("[ERROR] {}", err_msg);
-}
-
+// Rng that only changes every hour.
 fn generate_rng() -> rngs::StdRng {
     let time = chrono::offset::Utc::now();
     let hours = time.time().hour();
@@ -105,7 +92,9 @@ fn generate_rng() -> rngs::StdRng {
     rng
 }
 
+// Functionally just the "main" code, wrapped in a library.
 pub fn emulate() {
+    // Base values to get the emulator started.
     let mut irritation: i32 = 0;
     let mut last_was_positive = true;
     let mut social_credit: i32 = 0;
@@ -117,6 +106,7 @@ pub fn emulate() {
     let mut LARGE_TOLERANCE: i32 = 100;
     let mut LARGE_TOLERANCE_CLOSE: i32 = 75;
 
+    // The speed at which different prefixes change your social credit and irritation.
     let mut polite_social_change: i32 = 2;
     let mut polite_strong_social_change: i32 = -5;
     let mut demanding_social_change: i32 = -2;
@@ -124,6 +114,7 @@ pub fn emulate() {
     let mut irritation_change: i32 = 4;
     let mut irritation_decay: i32 = -1;
 
+    // The technical assignments. Meant to emulate bespoke Assembly code for a custom-made chipset.
     let mut polite_registries: (i32, i32) = (0, 0);
     let mut demanding_registries: (i32, i32) = (0, 0);
     let mut stacks = (Vec::<i32>::new(), Vec::<i32>::new());
@@ -132,6 +123,8 @@ pub fn emulate() {
     let mut loop_registries: (i32, i32) = (0, 0);
     let mut forcedmood: Option<u64> = None;
 
+    // A lot of stuff for forcing the mood of the emulator to conform.
+    // Almost necessary to be able to demonstrate the capabilities of the language.
     let args: Vec<String> = std::env::args().collect();
     if args.len() == 3 {
         match args[2].clone().as_str() {
@@ -208,6 +201,7 @@ pub fn emulate() {
         _ => panic!("Generated a number outside of the range, for moods!")
     }
 
+    // --get_mood option lets you see the mood of the emulator.
     if args.len() == 2 {
         if args[1].clone() == "get_mood" {
             println!("{:?}", mood);
@@ -215,20 +209,22 @@ pub fn emulate() {
         }
     }
     if args.len() < 2 {
-        print_error("A path to a SAL file must be provided!");
+        println!("[ERROR] A path to a SAL file must be provided!");
     } else {
-        println!("{:?}", args[1]);
-        let mut commands: Vec<(PrefixType, OperationType, [bool; 3])> = fs::read(args[1].clone()).ok().unwrap()
+        // Convert the read file (a byte list) into a list of operations.
+        let commands: Vec<(PrefixType, OperationType, [bool; 3])> = fs::read(args[1].clone()).ok().unwrap()
                                                                                         .into_iter()
                                                                                         .map(|x| convert_to_instruction(x))
                                                                                         .collect();
 
+        // Then loop through the commands.
         let mut i = 0;
-        while (i < commands.len()) {
+        while i < commands.len() {
             let prefix_type = commands[i].0.clone();
             let operation_type = commands[i].1.clone();
             let specifics = commands[i].2;
 
+            // Here we first check various social values, to determine if the operation is changed.
             if irritation >= 1000 {
                 eprintln!("This program is DONE with your wishy-washy attitude.");
                 std::thread::sleep(std::time::Duration::from_millis(500));
@@ -245,6 +241,7 @@ pub fn emulate() {
                     }
                     if !last_was_positive {
                         irritation += irritation_change;
+                        last_was_positive = true;
                     } else if irritation > 0 {
                         irritation += irritation_decay;
                     }
@@ -261,6 +258,7 @@ pub fn emulate() {
                     }
                     if last_was_positive {
                         irritation += irritation_change;
+                        last_was_positive = false;
                     } else if irritation > 0 {
                         irritation += irritation_decay;
                     }
@@ -278,6 +276,7 @@ pub fn emulate() {
                     }
                     if last_was_positive {
                         irritation += irritation_change;
+                        last_was_positive = false;
                     } else if irritation > 0 {
                         irritation += irritation_decay;
                     }
@@ -291,6 +290,7 @@ pub fn emulate() {
                     }
                     if last_was_positive {
                         irritation += irritation_change;
+                        last_was_positive = false;
                     } else if irritation > 0 {
                         irritation += irritation_decay;
                     }
@@ -299,6 +299,9 @@ pub fn emulate() {
                 _ => panic!()
             }
 
+            // A lot of these are very ugly. Badly made, too.
+            // Often, the operation will have to load the registry into a temporary value.
+            // Then modify that value, and set the registry to that temporary value.
             match operation_type {
                 OperationType::INCREMENT => {
                     let mut selected_registries: (i32, i32);
@@ -444,14 +447,14 @@ pub fn emulate() {
                     }
                 },
                 OperationType::LOOP => {
-                    let mut selected_registries: (i32, i32);
+                    let selected_registries: (i32, i32);
                     if prefix_type == PrefixType::POLITE || prefix_type == PrefixType::POLITE_STRONG {
                         selected_registries = polite_registries;
                     } else {
                         selected_registries = demanding_registries;
                     }
 
-                    let mut selected_registry = 0;
+                    let selected_registry;
                     if specifics[0] {
                         selected_registry = selected_registries.1;
                     } else {
@@ -552,7 +555,7 @@ pub fn emulate() {
                     }
                 }
                 OperationType::BRANCH_IF_EQUAL => {
-                    let mut selected_registries: (i32, i32);
+                    let selected_registries: (i32, i32);
                     if prefix_type == PrefixType::POLITE || prefix_type == PrefixType::POLITE_STRONG {
                         selected_registries = polite_registries;
                     } else {
@@ -581,13 +584,6 @@ pub fn emulate() {
                     }
                 }
                 OperationType::JUMP => {
-                    let mut selected_registries: (i32, i32);
-                    if prefix_type == PrefixType::POLITE || prefix_type == PrefixType::POLITE_STRONG {
-                        selected_registries = polite_registries;
-                    } else {
-                        selected_registries = demanding_registries;
-                    }
-
                     let mut value = 1;
                     if specifics[0] {
                         value += 4;
